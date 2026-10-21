@@ -1,6 +1,5 @@
 import json
 import logging
-import random
 from datetime import datetime, timedelta
 
 import backoff
@@ -10,7 +9,7 @@ from config import get_config
 
 
 # Configure logging
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
 
 
