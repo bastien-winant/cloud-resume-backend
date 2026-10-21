@@ -1,5 +1,3 @@
-# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
-# SPDX-License-Identifier: Apache-2.0
 import json
 import logging
 import random
@@ -9,20 +7,6 @@ import backoff
 import boto3
 
 from config import get_config
-
-
-def load_sample_data(path: str) -> dict:
-    """
-    Load sample data from a JSON file.
-
-    Args:
-        path (str): The file path to the JSON file containing sample data.
-
-    Returns:
-        dict: The loaded sample data as a dictionary.
-    """
-    with open(path, "r") as f:
-        return json.load(f)
 
 
 # Configure logging
@@ -56,9 +40,6 @@ class FirehoseClient:
         self.firehose = boto3.client("firehose", region_name=self.region)
         self.cloudwatch = boto3.client("cloudwatch", region_name=self.region)
 
-    # snippet-end:[python.example_code.firehose.init]
-
-    # snippet-start:[python.example_code.firehose.put_record]
     @backoff.on_exception(
         backoff.expo, Exception, max_tries=5, jitter=backoff.full_jitter
     )
@@ -82,37 +63,6 @@ class FirehoseClient:
             logger.info(f"Fail record: {record}.")
             raise
 
-    # snippet-end:[python.example_code.firehose.put_record]
-
-    # snippet-start:[python.example_code.firehose.put_record_batch]
-    @backoff.on_exception(
-        backoff.expo, Exception, max_tries=5, jitter=backoff.full_jitter
-    )
-    def put_record_batch(self, data: list, batch_size: int = 500):
-        """
-        Put records in batches to Firehose with backoff and retry.
-
-        Args:
-            data (list): List of data records to be sent to Firehose.
-            batch_size (int): Number of records to send in each batch. Default is 500.
-
-        This method attempts to send records in batches to the Firehose delivery stream.
-        It retries with exponential backoff in case of exceptions.
-        """
-        for i in range(0, len(data), batch_size):
-            batch = data[i : i + batch_size]
-            record_dicts = [{"Data": json.dumps(record)} for record in batch]
-            try:
-                response = self.firehose.put_record_batch(
-                    DeliveryStreamName=self.delivery_stream_name, Records=record_dicts
-                )
-                self._log_batch_response(response, len(batch))
-            except Exception as e:
-                logger.info(f"Failed to send batch of {len(batch)} records. Error: {e}")
-
-    # snippet-end:[python.example_code.firehose.put_record_batch]
-
-    # snippet-start:[python.example_code.firehose.get_stream_metrics]
     def get_metric_statistics(
         self,
         metric_name: str,
@@ -182,8 +132,6 @@ class FirehoseClient:
             else:
                 logger.info(f"No data found for {metric} over the last 5 minutes")
 
-    # snippet-end:[python.example_code.firehose.get_stream_metrics]
-
     def _create_record_entry(self, record: dict) -> dict:
         """
         Create a record entry for Firehose.
@@ -195,14 +143,14 @@ class FirehoseClient:
             dict: The record entry formatted for Firehose.
 
         Raises:
-            Exception: If a simulated network error occurs.
+            Exception: If a network error occurs.
         """
-        if random.random() < 0.2:
-            raise Exception("Simulated network error")
-        elif random.random() < 0.1:
-            return {"Data": '{"malformed": "data"'}
-        else:
+        try:
             return {"Data": json.dumps(record)}
+        except KeyError as e:
+            raise Exception("Wrongly formatted record: ", e)
+        except Exception as e:
+            raise Exception("An unexpected error occured", e)
 
     def _log_response(self, response: dict, entry: dict):
         """
@@ -217,38 +165,16 @@ class FirehoseClient:
         else:
             logger.info(f"Fail record: {entry}")
 
-    def _log_batch_response(self, response: dict, batch_size: int):
-        """
-        Log the batch response from Firehose.
 
-        Args:
-            response (dict): The response from the Firehose put_record_batch API call.
-            batch_size (int): The number of records in the batch.
-        """
-        if response.get("FailedPutCount", 0) > 0:
-            logger.info(
-                f'Failed to send {response["FailedPutCount"]} records in batch of {batch_size}'
-            )
-        else:
-            logger.info(f"Successfully sent batch of {batch_size} records")
+def lambda_handler(event, context):
+    logger.info(event)
 
-
-if __name__ == "__main__":
     config = get_config()
-    data = load_sample_data(config.sample_data_file)
     client = FirehoseClient(config)
 
-    # Process the first 100 sample network records
-    for record in data[:100]:
-        try:
-            client.put_record(record)
-        except Exception as e:
-            logger.info(f"Put record failed after retries and backoff: {e}")
-    client.monitor_metrics()
-
-    # Process remaining records using the batch method
     try:
-        client.put_record_batch(data[100:])
+        client.put_record(event)
     except Exception as e:
-        logger.info(f"Put record batch failed after retries and backoff: {e}")
+        logger.info(f"Put record failed after retries and backoff: {e}")
+
     client.monitor_metrics()
