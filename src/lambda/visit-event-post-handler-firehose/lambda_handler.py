@@ -1,6 +1,6 @@
 import json
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, UTC
 
 import backoff
 import boto3
@@ -13,7 +13,6 @@ logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
 
 
-# snippet-start:[python.example_code.firehose.init]
 class FirehoseClient:
     """
     AWS Firehose client to send records and monitor metrics.
@@ -103,8 +102,8 @@ class FirehoseClient:
         This method retrieves and logs the 'IncomingBytes', 'IncomingRecords', and 'FailedPutCount' metrics
         from CloudWatch for the last 5 minutes.
         """
-        end_time = datetime.utcnow()
-        start_time = end_time - timedelta(minutes=10)
+        end_time = datetime.now(UTC)
+        start_time = end_time - timedelta(minutes=5)
         period = int((end_time - start_time).total_seconds())
 
         metrics = {
@@ -145,7 +144,16 @@ class FirehoseClient:
             Exception: If a network error occurs.
         """
         try:
-            return {"Data": json.dumps(record)}
+            request_context = record["requestContext"]
+
+            entry_data = {
+                "requestId": request_context["requestId"],
+                "userAgent": request_context["http"]["userAgent"],
+                "sourceIp": request_context["http"]["sourceIp"],
+                "timestamp": request_context["time"]
+            }
+
+            return {"Data": json.dumps(entry_data)}
         except KeyError as e:
             raise Exception("Wrongly formatted record: ", e)
         except Exception as e:
@@ -167,6 +175,10 @@ class FirehoseClient:
 
 def lambda_handler(event, context):
     logger.info(event)
+    print("EVENT: ", event)
+
+    status_code = 200
+    headers = { "Content-Type": "application/json" }
 
     config = get_config()
     client = FirehoseClient(config)
@@ -177,3 +189,9 @@ def lambda_handler(event, context):
         logger.info(f"Put record failed after retries and backoff: {e}")
 
     client.monitor_metrics()
+    
+    return {
+        "statusCode": status_code,
+        "headers": headers,
+        "body": json.dumps(event)
+    }
