@@ -1,6 +1,6 @@
 class Config:
   def __init__(self):
-    self.table_name = "cloud-resume-visit-events"
+    self.table_name = "CloudResumeVisitEvents"
     self.region = "eu-central-1"
 
 
