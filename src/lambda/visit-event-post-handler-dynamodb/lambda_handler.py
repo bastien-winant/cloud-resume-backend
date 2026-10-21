@@ -15,7 +15,6 @@ def lambda_hander(event, context):
   logger.info(event)
   print("EVENT: ", event)
 
-  status_code = 200
   headers = { "Content-Type": "application/json" }
 
   config = get_config()
@@ -23,11 +22,10 @@ def lambda_hander(event, context):
   visit_events = VisitEvents(dynamodb)
 
   try:
-    table_exists = visit_events.exists(config.table_name)
+    # ensure the dynamodb table exists
+    visit_events.exists(config.table_name)
 
-    if not table_exists:
-      visit_events.create_table(config.table_name)
-
+    # save the record to dynamodb
     visit_events.add_event(event)
   except Exception as err:
     return {
@@ -40,7 +38,7 @@ def lambda_hander(event, context):
     }
 
   return {
-    "statusCode": status_code,
+    "statusCode": 200,
     "headers": headers,
     "body": json.dumps(event)
   }
