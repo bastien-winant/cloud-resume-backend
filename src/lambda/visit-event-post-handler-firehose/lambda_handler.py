@@ -12,7 +12,6 @@ def lambda_handler(event, context):
 	logger.info(event)
 	print("EVENT: ", event)
 
-	status_code = 200
 	headers = { "Content-Type": "application/json" }
 
 	config = get_config()
@@ -20,14 +19,21 @@ def lambda_handler(event, context):
 
 	try:
 		client.put_record(event)
-	except Exception as e:
-		status_code = 500
-		logger.info(f"Put record failed after retries and backoff: {e}")
+	except Exception as err:
+		logger.info(f"Put record failed after retries and backoff: {err}")
+		return {
+			'statusCode': 500,
+			'headers': headers,
+			'body': json.dumps({
+				'message': err.response["Error"]["Code"],
+				'error': err.response["Error"]["Message"],
+			}),
+		}
 
 	client.monitor_metrics()
 	
 	return {
-		"statusCode": status_code,
+		"statusCode": 200,
 		"headers": headers,
 		"body": json.dumps(event)
 	}
