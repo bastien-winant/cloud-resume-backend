@@ -1,16 +1,9 @@
-import json
 import logging
-import os
-from pprint import pprint
-import requests
-from zipfile import ZipFile
-import boto3
-from boto3.dynamodb.conditions import Key
 from botocore.exceptions import ClientError
-from question import Question
 
+# Configure logging
+logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
-
 
 class VisitEvents:
 	"""Encapsulates an Amazon DynamoDB table of website visit events.
