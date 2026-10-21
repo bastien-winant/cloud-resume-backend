@@ -24,8 +24,23 @@ def lambda_hander(event, context):
     # ensure the dynamodb table exists
     visit_events.exists(config.table_name)
 
+    headers = event.get("headers", {})
+    request_context = event.get("requestContext", {})
+
+    request_id = request_context["requestId"]
+    timestamp = request_context["time"]
+    source_ip = headers["x-forwarded-for"]
+    user_agent = headers["user-agent"]
+
+    record = {
+      "requestId": request_id,
+      "timestamp": timestamp,
+      "sourceIp": source_ip,
+      "userAgent": user_agent
+    }
+
     # save the record to dynamodb
-    visit_events.add_event(event)
+    visit_events.add_event(record)
   except Exception as err:
     return {
       'statusCode': 500,
