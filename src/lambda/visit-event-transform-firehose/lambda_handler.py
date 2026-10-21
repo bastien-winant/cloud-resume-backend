@@ -11,7 +11,6 @@ logger = logging.getLogger(__name__)
 
 def lambda_handler(event, context):
   logger.info('Request: %s', event)
-  print("EVENT: ", event)
   
   output = []
 

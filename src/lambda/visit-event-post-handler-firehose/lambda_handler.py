@@ -10,7 +10,6 @@ logger = logging.getLogger(__name__)
 
 def lambda_handler(event, context):
 	logger.info(event)
-	print("EVENT: ", event)
 
 	headers = { "Content-Type": "application/json" }
 
